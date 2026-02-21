@@ -1,0 +1,133 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:			jellyfin jellyfin-server jellyfin-web
+# Required-Start:	$local_fs $remote_fs
+# Required-Stop:	$local_fs $remote_fs
+# Should-Start:		network-manager
+# Should-Stop:		
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	Jellyfin daemon
+# Description:			Jellyfin multimedia server 
+### END INIT INFO
+
+# Init script for SysVinit
+# Writen by Labna
+
+set -e
+
+# # # External functions library # # #
+. /lib/lsb/init-functions
+
+
+# # # Script variables default definition # # #
+# don't change the values here but on the file /etc/default/jellyfin
+JELLYFIN_USER=jellyfin
+JELLYFIN_DATA_DIR=/var/lib/jellyfin
+JELLYFIN_CONFIG_DIR=/etc/jellyfin
+JELLYFIN_LOG_DIR=/var/log/jellyfin
+JELLYFIN_CACHE_DIR=/var/cache/jellyfin
+JELLYFIN_WEB_OPT="--webdir=/usr/share/jellyfin/web"
+JELLYFIN_EXEC=/usr/bin/jellyfin
+JELLYFIN_EXEC_DIR=/lib/jellyfin/bin/
+JELLYFIN_FFMPEG_OPT="--ffmpeg=/usr/lib/jellyfin-ffmpeg/ffmpeg"
+JELLYFIN_ARGS="--datadir=$JELLYFIN_DATA_DIR $JELLYFIN_WEB_OPT --cachedir=$JELLYFIN_CACHE_DIR --configdir=$JELLYFIN_CONFIG_DIR --logdir=$JELLYFIN_LOG_DIR $JELLYFIN_FFMPEG_OPT --service"
+PIDFILE=/var/run/jellyfin.pid
+
+# # # Globale variables definition # # #
+# Use jemalloc2 for improved RAM usage (#11588)
+# LD_PRELOAD=/usr/lib/jellyfin/libjemalloc.so
+
+# Disable glibc dynamic heap adjustment
+#MALLOC_TRIM_THRESHOLD_=131072
+
+# # # Overwrite variables from config file # # #
+. /etc/default/jellyfin
+
+
+# # # Functions # # #
+is_running()
+{
+  retval=1
+  if [ -r $PIDFILE ]; then
+    pid=`cat $PIDFILE`
+    if [ -e /proc/$pid ]; then
+      procname=`/bin/ps h -p $pid`
+      [ -n "$procname" ] && retval=0
+    fi
+  fi
+  return $retval
+}
+
+start()
+{
+	if is_running; then
+    	log_warning_msg "already running"
+    	return 1
+	fi
+	start-stop-daemon --start --quiet --background --pidfile $PIDFILE \
+		--make-pidfile --user $JELLYFIN_USER --chuid $JELLYFIN_USER \
+		--chdir $JELLYFIN_EXEC_DIR --exec $JELLYFIN_EXEC -- $JELLYFIN_ARGS
+}
+
+stop()
+{
+	if ! is_running; then
+    	log_warning_msg "not running"
+    	return 1
+	fi
+	start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE \
+		--user $JELLYFIN_USER --exec $JELLYFIN_EXEC
+	# Wait until really stopped - $pid is set from is_running
+	# (waiting for max 60s (600 cycles at 100ms))
+	i=0
+	while kill -0 "$pid" 2> /dev/null;  do
+		if [ $i = '600' ]; then
+			break;
+		else
+			if [ $i = '0' ]; then
+				echo -n " ... waiting "
+			elif [ $(($i%10)) = 0 ]; then
+				echo -n "."
+			fi
+			i=$(($i+1))
+			sleep .1
+		fi
+	done
+	rm -f $PIDFILE
+}
+
+
+status()
+{
+	if is_running; then
+		log_success_msg "Service is running"
+	else
+		log_success_msg "Service is stopped"
+	fi
+}
+
+# # # Main # # #
+
+case $1 in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		stop
+		sleep 1
+		start 
+		;;
+	status)
+		status
+		;;
+	*)
+		log_success_msg "Usage: $0 {start|stop|restart|status}"
+		exit 1
+		;;
+esac
+
+exit 0
