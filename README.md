@@ -9,7 +9,11 @@ This script is to use [Jellyfin](https://github.com/jellyfin/jellyfin) with the 
 3. download the file <https://github.com/Labna/jellyfin-sysvinit/raw/refs/heads/main/jellyfin>
 4. move it to `/etc/init.d/jellyfin`  
    exemple `sudo mv jellyfin /etc/init.d/`
-5. change the settings of your Jellyfin instance in `/etc/defaults/jellyfin`
+5. change the settings of your Jellyfin instance in `/etc/default/jellyfin`
 6. Update the service list `sudo update-rc.d jellyfin defaults`
 7. Finally start your server `sudo service jellyfin start`
 8. You may can access via the url <http://127.0.0.1:8096>
+
+## Need more help ?
+
+Thread on this forum : <https://forum.jellyfin.org/t-linux-install-with-sysvinit>
